@@ -2,7 +2,7 @@ import type { RecipeChart } from "./types";
 
 const sectionHeadings = /^(ingredients?|what you(?:'|’)ll need|instructions?|method|directions?|steps?|preparation)\s*:?[\s]*$/i;
 const ingredientStart = /^(?:\d+\s+)?(?:\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)?\s*(?:cups?|tbsps?|tablespoons?|tsps?|teaspoons?|grams?|g|kg|ml|l|oz|ounces?|lb|lbs|pounds?|cloves?|cans?|packets?|pinch|dash|handful|large|medium|small)?\b/i;
-const actionWords = /\b(preheat|heat|warm|melt|whisk|mix|stir|fold|beat|blend|combine|add|put|place|transfer|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|cut|chop|dice|knead|roll|assemble|sandwich|stack|layer|fill|coat|cover|spread|line|grease|decorate)\b/i;
+const actionWords = /\b(preheat|heat|warm|melt|whizz|blitz|whisk|mix|stir|fold|beat|blend|check|combine|add|put|place|transfer|pour|ladle|cook|flip|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|cut|chop|dice|knead|roll|assemble|sandwich|stack|layer|fill|coat|cover|spread|line|grease|decorate)\b/i;
 const prepWords = /(preheat|grease|butter .*pan|line .*pan|prepare .*tin|set .*oven|heat (?:the )?oven)/i;
 
 function cleanLine(value: string) {
@@ -14,7 +14,7 @@ function titleCase(value: string) {
 }
 
 function descriptiveActionLabel(step: string) {
-  const match = step.match(/\b(put|place|transfer|add|pour|mix|combine|fold|beat|whisk|stir|assemble|sandwich|stack|layer|fill|coat|cover|spread|decorate)\b[^.!?;]*/i);
+  const match = step.match(/\b(whizz|blitz|blend|check|heat|cook|flip|put|place|transfer|add|pour|ladle|mix|combine|fold|beat|whisk|stir|assemble|sandwich|stack|layer|fill|coat|cover|spread|decorate)\b[^.!?;]*/i);
   if (!match) return undefined;
 
   const cleaned = match[0]
@@ -29,7 +29,7 @@ function descriptiveActionLabel(step: string) {
     .trim();
   const words = cleaned.split(/\s+/);
   if (words.length > 11) {
-    const destination = cleaned.match(/\b(?:in|into|onto|over|with)\s+(?:[a-z-]+\s+){0,3}(?:pan|tin|bowl|dish|tray|mixture|batter|dough|ganache|icing|filling)\b/i)?.[0];
+    const destination = cleaned.match(/\b(?:in|into|onto|over|with)\s+(?:[a-z-]+\s+){0,3}(?:pan|tin|bowl|dish|tray|blender|processor|mixture|batter|dough|ganache|icing|filling)\b/i)?.[0];
     const shortened = words.slice(0, destination ? 8 : 11).join(" ");
     return `${shortened}${destination && !shortened.includes(destination) ? ` ${destination}` : ""}`.toLowerCase();
   }
@@ -101,6 +101,21 @@ function removeUnquantifiedDuplicates(ingredients: string[]) {
 }
 
 const tipWords = /\b(?:keeps?|will keep|store|storage|make ahead|freezable|can be frozen|leftovers?|best eaten|stays? fresh|shelf life)\b/i;
+const pageFurniture = /^(?:ad|advertisement|method|ingredients?|nutrition|recipe tips?|tips?|to serve|cook mode|step\s*\d+|low|high|loading(?:\.\.\.)?)$/i;
+const nutritionLine = /^(?:kcal|calories?|fat|saturates?|carbs?|carbohydrates?|sugars?|fibre|fiber|protein|salt|sodium)\s*\d/i;
+
+function splitActionSentences(instructions: string[]) {
+  return instructions.flatMap(instruction => {
+    const sentences = instruction.split(/(?<=[.!?])\s+/).map(cleanLine).filter(Boolean);
+    if (sentences.length < 2) return sentences;
+    const steps: string[] = [];
+    for (const sentence of sentences) {
+      if (actionWords.test(sentence) || !steps.length) steps.push(sentence);
+      else steps[steps.length - 1] = `${steps[steps.length - 1]} ${sentence}`;
+    }
+    return steps;
+  });
+}
 
 function separateTips(instructions: string[]) {
   const tips: string[] = [];
@@ -116,7 +131,7 @@ function separateTips(instructions: string[]) {
   return { actions, tips: [...new Set(tips)].slice(0, 8) };
 }
 
-function parseSections(recipeText: string) {
+function parseSectionsLegacy(recipeText: string) {
   const rawLines = recipeText.split(/\r?\n/).map(cleanLine).filter(Boolean);
   let title = rawLines[0] || "Recipe";
   const ingredients: string[] = [];
@@ -147,6 +162,47 @@ function parseSections(recipeText: string) {
     title: titleCase(title.replace(/^(recipe\s*:)/i, "").trim() || "Recipe"),
     ingredients: removeUnquantifiedDuplicates(ingredients).slice(0, 40),
     instructions: [...new Set(instructions)].slice(0, 30)
+  };
+}
+
+function parseSections(recipeText: string) {
+  const rawLines = recipeText.split(/\r?\n/).map(cleanLine).filter(Boolean);
+  const methodIndex = rawLines.findIndex(line => /^(?:method|instructions?|directions?|steps?|preparation)\s*:?$/i.test(line));
+  const ingredientsIndex = rawLines.findIndex(line => /^(?:ingredients?|what you.+need)\s*:?$/i.test(line));
+  const first = rawLines[0] || "";
+  const firstIsIngredient = /^(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞]|pinch\b|dash\b|handful\b)/i.test(first);
+  const title = first && !firstIsIngredient && !pageFurniture.test(first) && !actionWords.test(first) ? first : "Recipe";
+  const ingredients: string[] = [];
+  const instructions: string[] = [];
+
+  if (methodIndex >= 0) {
+    const start = ingredientsIndex >= 0 ? ingredientsIndex + 1 : title === first ? 1 : 0;
+    for (const line of rawLines.slice(start, methodIndex)) {
+      if (pageFurniture.test(line) || nutritionLine.test(line) || /keep the screen awake|per serving/i.test(line)) continue;
+      if ((/^(?:\(|or\b)/i.test(line) || /\bto serve$/i.test(line)) && ingredients.length) ingredients[ingredients.length - 1] += ` ${line}`;
+      else if (line.length < 120) ingredients.push(line);
+    }
+
+    for (const line of rawLines.slice(methodIndex + 1)) {
+      if (/^(?:recipe tips?|tips?|to serve|comments, questions and tips|rate this recipe)\s*:?$/i.test(line)) break;
+      if (pageFurniture.test(line) || nutritionLine.test(line) || /keep the screen awake/i.test(line)) continue;
+      if (actionWords.test(line) || line.length > 70) instructions.push(line);
+    }
+  }
+
+  if (!ingredients.length || !instructions.length) {
+    const legacy = parseSectionsLegacy(recipeText);
+    return {
+      ...legacy,
+      title: firstIsIngredient ? "Recipe" : legacy.title,
+      instructions: splitActionSentences(legacy.instructions)
+    };
+  }
+
+  return {
+    title: titleCase(title.replace(/^(recipe\s*:)/i, "").trim() || "Recipe"),
+    ingredients: removeUnquantifiedDuplicates(ingredients).slice(0, 40),
+    instructions: splitActionSentences([...new Set(instructions)]).slice(0, 30)
   };
 }
 
