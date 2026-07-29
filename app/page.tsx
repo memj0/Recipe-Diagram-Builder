@@ -15,28 +15,38 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
     <section className="chart-shell" id="recipe-chart" aria-label={`${recipe.title} flowchart`}>
       <h2>{recipe.title}</h2>
       {recipe.prepNotes.map((note, index) => <div className="prep-note" key={index}>{note}</div>)}
-      <div className="flow-grid" style={{ gridTemplateColumns: `minmax(310px, 2.7fr) repeat(${recipe.stages.length}, minmax(92px, .72fr)) minmax(140px, 1fr)` }}>
-        <div className="ingredient-column">
-          {recipe.ingredients.map((ingredient) => <div className="ingredient" key={ingredient.id}>{ingredient.text}</div>)}
-        </div>
+      <div
+        className="flow-grid"
+        style={{
+          gridTemplateColumns: `minmax(310px, 2.7fr) repeat(${recipe.stages.length}, minmax(92px, .72fr)) minmax(140px, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, minmax(58px, auto))`
+        }}
+      >
+        {recipe.ingredients.map((ingredient, index) => (
+          <div className={`ingredient${index === rows - 1 ? " ingredient-last" : ""}`} key={ingredient.id} style={{ gridColumn: 1, gridRow: index + 1 }}>
+            {ingredient.text}
+          </div>
+        ))}
 
-        {recipe.stages.map((stage) => {
+        {recipe.stages.map((stage, stageIndex) => {
           const indices = stage.ingredientIds.map(id => ingredientIndex.get(id)).filter(Boolean) as number[];
-          const start = Math.min(...indices, 1);
-          const end = Math.max(...indices, rows);
+          const start = indices.length ? Math.min(...indices) : 1;
+          const end = indices.length ? Math.max(...indices) : rows;
+          const column = stageIndex + 2;
           return (
-            <div className="stage-column" key={stage.id}>
-              <div className="stage-spacer" style={{ flex: start - 1 }} />
-              <div className="stage-box" style={{ flex: Math.max(end - start + 1, 1) }} title={stage.instruction}>
+            <div className="stage-group" key={stage.id}>
+              <div className="stage-lane" aria-hidden="true" style={{ gridColumn: column, gridRow: `1 / span ${rows}` }} />
+              <div className="stage-box" style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
                 <strong>{stage.label}</strong>
                 <span>{stage.instruction}</span>
               </div>
-              <div className="stage-spacer" style={{ flex: Math.max(rows - end, 0) }} />
             </div>
           );
         })}
 
-        <div className="final-column"><strong>{recipe.finalStep}</strong></div>
+        <div className="final-column" style={{ gridColumn: recipe.stages.length + 2, gridRow: `1 / span ${rows}` }}>
+          <strong>{recipe.finalStep}</strong>
+        </div>
       </div>
     </section>
   );
