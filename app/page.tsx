@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RecipeChart } from "../lib/types";
 import { sampleRecipe } from "../lib/sample";
 
@@ -90,6 +90,48 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
   );
 }
 
+function FittedChart({ recipe }: { recipe: RecipeChart }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 1, width: 0, height: 0, printScale: 1 });
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+
+    const updateFit = () => {
+      const naturalWidth = content.scrollWidth;
+      const naturalHeight = content.scrollHeight;
+      const scale = naturalWidth ? Math.min(1, viewport.clientWidth / naturalWidth) : 1;
+      const printScale = naturalWidth ? Math.min(1, 1050 / naturalWidth) : 1;
+      setFit({ scale, width: naturalWidth * scale, height: naturalHeight * scale, printScale });
+    };
+
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(viewport);
+    observer.observe(content);
+    updateFit();
+    return () => observer.disconnect();
+  }, [recipe]);
+
+  const fitStyle = { width: fit.width || undefined, height: fit.height || undefined };
+  const scaleStyle = {
+    transform: `scale(${fit.scale})`,
+    "--print-scale": fit.printScale
+  } as CSSProperties;
+
+  return (
+    <div className="preview-scroll">
+      <div className="chart-viewport" ref={viewportRef}>
+        <div className="chart-fit" style={fitStyle}>
+          <div className="chart-scale" ref={contentRef} style={scaleStyle}><Chart recipe={recipe} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [mode, setMode] = useState<"text" | "url">("text");
   const [input, setInput] = useState("");
@@ -170,7 +212,7 @@ export default function Home() {
             </div>
             <button type="button" onClick={() => window.print()}>Print / save PDF</button>
           </div>
-          <div className="preview-scroll"><Chart recipe={recipe} /></div>
+          <FittedChart recipe={recipe} />
         </div>
       </section>
     </main>
