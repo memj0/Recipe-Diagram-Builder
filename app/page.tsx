@@ -156,7 +156,7 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
   return (
     <div className="preview-scroll">
       <div className="zoom-controls" aria-label="Diagram zoom controls">
-        <button type="button" onClick={() => setZoom(value => Math.max(.6, Number((value - .2).toFixed(1))))} disabled={zoom <= .6} aria-label="Zoom out">−</button>
+        <button type="button" className="zoom-word" onClick={() => setZoom(value => Math.max(.6, Number((value - .2).toFixed(1))))} disabled={zoom <= .6}>Zoom out</button>
         <output aria-live="polite">{Math.round(zoom * 100)}%</output>
         <button type="button" onClick={() => setZoom(value => Math.min(3, Number((value + .2).toFixed(1))))} disabled={zoom >= 3} aria-label="Zoom in">+</button>
         <button type="button" className="zoom-fit" onClick={() => setZoom(1)}>Fit</button>
@@ -217,7 +217,7 @@ export default function Home() {
       <header className="hero">
         <span className="eyebrow">RECIPE → FLOWCHART</span>
         <h1>Turn any written recipe into a visual cooking chart.</h1>
-        <p>The website uses its built-in parser to identify ingredients, actions, branches and cooking stages.</p>
+        <p>The website uses its built in parser to identify ingredients, actions, branches and cooking stages.</p>
       </header>
 
       <section className="workspace">
@@ -234,7 +234,7 @@ export default function Home() {
           )}
           <button className="primary" disabled={loading}>{loading ? "Building chart…" : "Create recipe chart"}</button>
           {error && <p className="error">{error}</p>}
-          <p className="hint">Recipe extraction, section detection, action matching and ingredient-to-step mapping are handled by the built-in parser.</p>
+          <p className="hint">Recipe extraction, section detection, action matching and ingredient to step mapping are handled by the built in parser.</p>
         </form>
 
         <div className="preview-card">
@@ -242,7 +242,7 @@ export default function Home() {
             <div>
               <span>Live result</span>
               {recipe.meta && <span className={`method-badge ${recipe.meta.method}`}>
-                {recipe.meta.method === "deterministic" ? "Built-in parser" : "AI fallback"} · {Math.round(recipe.meta.confidence * 100)}% parser confidence
+                {recipe.meta.method === "deterministic" ? "Built in parser" : "AI fallback"} · {Math.round(recipe.meta.confidence * 100)}% parser confidence
               </span>}
             </div>
             <button type="button" onClick={() => window.print()}>Print / save PDF</button>
