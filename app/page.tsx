@@ -80,6 +80,12 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
           <strong>{recipe.finalStep}</strong>
         </div>
       </div>
+      {recipe.tips && recipe.tips.length > 0 && (
+        <aside className="tips-box" aria-label="Recipe tips and storage information">
+          <h3>Tips &amp; tricks</h3>
+          <ul>{recipe.tips.map((tip, index) => <li key={index}>{tip}</li>)}</ul>
+        </aside>
+      )}
     </section>
   );
 }

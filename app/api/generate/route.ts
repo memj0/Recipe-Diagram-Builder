@@ -7,7 +7,7 @@ export const maxDuration = 60;
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "prepNotes", "ingredients", "stages", "finalStep", "finalIngredientIds", "finalInputStageIds"],
+  required: ["title", "prepNotes", "ingredients", "stages", "finalStep", "finalIngredientIds", "finalInputStageIds", "tips"],
   properties: {
     title: { type: "string" },
     prepNotes: { type: "array", items: { type: "string" }, maxItems: 4 },
@@ -29,7 +29,8 @@ const schema = {
     },
     finalStep: { type: "string" },
     finalIngredientIds: { type: "array", items: { type: "string" } },
-    finalInputStageIds: { type: "array", items: { type: "string" } }
+    finalInputStageIds: { type: "array", items: { type: "string" } },
+    tips: { type: "array", items: { type: "string" }, maxItems: 8 }
   }
 };
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
         store: false,
-        instructions: "You are a fallback parser. Convert the supplied recipe into accurate flowchart data. Preserve quantities and temperatures. List every ingredient once in original order and use ids i1, i2, etc. Make each suitable recipe instruction line one stage. Use the instruction's own verb or short compound verbs as its label; do not replace it with a preset synonym. Stage ingredientIds contain the ingredients in that stage's output. inputStageIds identify earlier stage outputs consumed by this stage. Mark branch true for a separately prepared component. Put oven or pan preparation in prepNotes. Put the last action in finalStep, ingredients first added there in finalIngredientIds, and active stage outputs feeding it in finalInputStageIds. Do not invent details.",
+        instructions: "You are a fallback parser. Convert the supplied recipe into accurate flowchart data. Preserve quantities and temperatures. List every real ingredient once in original order and use ids i1, i2, etc.; omit unquantified duplicate ingredient artifacts when a quantified equivalent exists. Make each suitable recipe instruction line one stage. Use the instruction's own verb or short compound verbs as its label and retain useful destinations such as 'put in pan'. Stage ingredientIds contain the ingredients in that stage's output. inputStageIds identify earlier stage outputs consumed by this stage. Mark branch true for a separately prepared component. Put oven or pan preparation in prepNotes. Put the last action in finalStep, ingredients first added there in finalIngredientIds, and active stage outputs feeding it in finalInputStageIds. Move storage advice, shelf-life notes, and non-action hints into tips instead of cooking stages. Do not invent details.",
         input: recipeText,
         text: { format: { type: "json_schema", name: "recipe_flowchart", strict: true, schema } }
       })

@@ -15,9 +15,18 @@ function titleCase(value: string) {
 
 function actionLabel(step: string) {
   const matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
+    .filter(match => {
+      const before = step.slice(0, match.index).toLowerCase();
+      const word = match[1].toLowerCase();
+      if (word === "heat" && /\b(?:off|the)\s+$/.test(before)) return false;
+      if (word === "rest" && /\bthe\s+$/.test(before)) return false;
+      return true;
+    })
     .map(match => match[1].toLowerCase())
     .filter((word, index, words) => words.indexOf(word) === index)
     .slice(0, 3);
+  const placement = step.match(/\bput\b[^.!?]*?\b(?:in|into)\s+(?:a|an|the)?\s*(pan|bowl|tin|dish|jug|pot|tray)\b/i);
+  if (matches[0] === "put" && placement) matches[0] = `put in ${placement[1].toLowerCase()}`;
   return matches.length ? matches.join(" & ") : step.split(/[.,;]/, 1)[0].trim().split(/\s+/).slice(0, 3).join(" ").toLowerCase();
 }
 
@@ -30,6 +39,39 @@ function ingredientTokens(text: string) {
     .split(/[^a-z]+/)
     .filter(word => word.length > 2)
     .map(word => word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word);
+}
+
+function hasIngredientQuantity(text: string) {
+  return /^\s*(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞])/u.test(text);
+}
+
+function removeUnquantifiedDuplicates(ingredients: string[]) {
+  const quantifiedSignatures = new Set(
+    ingredients
+      .filter(hasIngredientQuantity)
+      .map(ingredient => [...new Set(ingredientTokens(ingredient))].sort().join("|"))
+      .filter(Boolean)
+  );
+  return ingredients.filter(ingredient => {
+    const signature = [...new Set(ingredientTokens(ingredient))].sort().join("|");
+    return hasIngredientQuantity(ingredient) || !signature || !quantifiedSignatures.has(signature);
+  });
+}
+
+const tipWords = /\b(?:keeps?|will keep|store|storage|make ahead|freezable|can be frozen|leftovers?|best eaten|stays? fresh|shelf life)\b/i;
+
+function separateTips(instructions: string[]) {
+  const tips: string[] = [];
+  const actions = instructions.map(instruction => {
+    const sentences = instruction.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const actionSentences = sentences.filter(sentence => {
+      if (!tipWords.test(sentence)) return true;
+      tips.push(sentence.trim());
+      return false;
+    });
+    return actionSentences.join(" ").trim();
+  }).filter(Boolean);
+  return { actions, tips: [...new Set(tips)].slice(0, 8) };
 }
 
 function parseSections(recipeText: string) {
@@ -61,7 +103,7 @@ function parseSections(recipeText: string) {
 
   return {
     title: titleCase(title.replace(/^(recipe\s*:)/i, "").trim() || "Recipe"),
-    ingredients: ingredients.slice(0, 40),
+    ingredients: removeUnquantifiedDuplicates(ingredients).slice(0, 40),
     instructions: [...new Set(instructions)].slice(0, 30)
   };
 }
@@ -70,8 +112,9 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   const parsed = parseSections(recipeText);
   const warnings: string[] = [];
   const ingredients = parsed.ingredients.map((text, index) => ({ id: `i${index + 1}`, text }));
-  const prepNotes = parsed.instructions.filter(step => prepWords.test(step)).slice(0, 4);
-  const cookingSteps = parsed.instructions.filter(step => !prepNotes.includes(step));
+  const separated = separateTips(parsed.instructions);
+  const prepNotes = separated.actions.filter(step => prepWords.test(step)).slice(0, 4);
+  const cookingSteps = separated.actions.filter(step => !prepNotes.includes(step));
   const finalIndex = cookingSteps.length - 1;
   const finalStep = cookingSteps.at(-1) || "Serve when ready.";
   const stageSteps = cookingSteps.slice(0, -1).slice(0, 16);
@@ -182,7 +225,8 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
     stages: stages.length ? stages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients.", inputStageIds: [] }],
     finalStep,
     finalIngredientIds,
-    finalInputStageIds
+    finalInputStageIds,
+    tips: separated.tips
   };
 
   return { chart, confidence, warnings };

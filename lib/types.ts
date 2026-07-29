@@ -13,6 +13,7 @@ export type RecipeChart = {
   finalStep: string;
   finalIngredientIds?: string[];
   finalInputStageIds?: string[];
+  tips?: string[];
   meta?: {
     method: "deterministic" | "ai-fallback";
     confidence: number;
