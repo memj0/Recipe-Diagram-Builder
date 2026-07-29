@@ -36,7 +36,7 @@ const schema = {
 
 export async function POST(request: Request) {
   try {
-    const { recipeText, allowAiFallback = true } = await request.json();
+    const { recipeText, allowAiFallback = true, nutrition } = await request.json();
     if (typeof recipeText !== "string" || recipeText.trim().length < 30) return NextResponse.json({ error: "Paste a fuller recipe before generating a chart." }, { status: 400 });
     if (recipeText.length > 40000) return NextResponse.json({ error: "Recipe text is too long." }, { status: 400 });
 
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     if (!shouldUseAi) {
       return NextResponse.json({
         ...deterministic.chart,
+        ...(nutrition && typeof nutrition === "object" ? { nutrition } : {}),
         meta: { method: "deterministic", confidence: deterministic.confidence, warnings: deterministic.warnings }
       });
     }
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     }
     const outputText = payload.output_text || payload.output?.flatMap((item: any) => item.content || []).find((item: any) => item.type === "output_text")?.text;
     if (!outputText) throw new Error("The AI returned no chart data.");
-    return NextResponse.json({ ...JSON.parse(outputText), meta: { method: "ai-fallback", confidence: deterministic.confidence, warnings: deterministic.warnings } });
+    return NextResponse.json({ ...JSON.parse(outputText), ...(nutrition && typeof nutrition === "object" ? { nutrition } : {}), meta: { method: "ai-fallback", confidence: deterministic.confidence, warnings: deterministic.warnings } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not generate the chart." }, { status: 500 });
   }

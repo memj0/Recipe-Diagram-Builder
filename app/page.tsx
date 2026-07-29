@@ -87,6 +87,29 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
           <ul>{recipe.tips.map((tip, index) => <li key={index}>{tip}</li>)}</ul>
         </aside>
       )}
+      {recipe.nutrition && (
+        <aside className="nutrition-box" aria-label="Nutrition information">
+          <div className="nutrition-heading">
+            <h3>Nutrition</h3>
+            <span>{recipe.nutrition.serving ? `Per ${recipe.nutrition.serving}` : "As stated by the recipe source"}</span>
+          </div>
+          <dl>
+            {([
+              ["Energy", recipe.nutrition.calories],
+              ["Carbohydrate", recipe.nutrition.carbohydrate],
+              ["Protein", recipe.nutrition.protein],
+              ["Fat", recipe.nutrition.fat],
+              ["Saturates", recipe.nutrition.saturatedFat],
+              ["Fibre", recipe.nutrition.fiber],
+              ["Sugars", recipe.nutrition.sugar],
+              ["Sodium", recipe.nutrition.sodium]
+            ] as Array<[string, string | undefined]>).filter(([, value]) => value).map(([label, value]) => (
+              <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+            ))}
+          </dl>
+          <p>Nutrition values are supplied by the recipe publisher and may be estimates.</p>
+        </aside>
+      )}
     </section>
   );
 }
@@ -147,6 +170,7 @@ export default function Home() {
     setError("");
     try {
       let recipeText = input.trim();
+      let nutrition: RecipeChart["nutrition"] | undefined;
       if (mode === "url") {
         const extractResponse = await fetch("/api/extract", {
           method: "POST",
@@ -156,12 +180,13 @@ export default function Home() {
         const extracted = await extractResponse.json();
         if (!extractResponse.ok) throw new Error(extracted.error || "Could not read that recipe URL.");
         recipeText = extracted.text;
+        nutrition = extracted.nutrition;
       }
 
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeText, allowAiFallback: false })
+        body: JSON.stringify({ recipeText, allowAiFallback: false, nutrition })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not create the chart.");

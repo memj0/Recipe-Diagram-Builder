@@ -219,12 +219,19 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
 
   const finalIngredientIds = ingredientsMentionedIn(finalStep);
   const finalInputStageIds = [...new Set(components.flatMap(component => component.producerStageId ? [component.producerStageId] : []))];
-  const stageIngredientIds = new Set(stages.flatMap(stage => stage.ingredientIds));
-  const finalOnlyIds = new Set(finalIngredientIds.filter(id => !stageIngredientIds.has(id)));
-  const orderedIngredients = [
-    ...ingredients.filter(ingredient => !finalOnlyIds.has(ingredient.id)),
-    ...ingredients.filter(ingredient => finalOnlyIds.has(ingredient.id))
-  ];
+  const firstUse = new Map<string, number>();
+  stages.forEach((stage, stageIndex) => stage.ingredientIds.forEach(id => {
+    if (!firstUse.has(id)) firstUse.set(id, stageIndex);
+  }));
+  finalIngredientIds.forEach(id => {
+    if (!firstUse.has(id)) firstUse.set(id, stages.length);
+  });
+  const originalPosition = new Map(ingredients.map((ingredient, index) => [ingredient.id, index]));
+  const orderedIngredients = [...ingredients].sort((left, right) => {
+    const leftUse = firstUse.get(left.id) ?? Number.POSITIVE_INFINITY;
+    const rightUse = firstUse.get(right.id) ?? Number.POSITIVE_INFINITY;
+    return leftUse - rightUse || originalPosition.get(left.id)! - originalPosition.get(right.id)!;
+  });
   const reorderedId = new Map(orderedIngredients.map((ingredient, index) => [ingredient.id, `i${index + 1}`]));
   const chartIngredients = orderedIngredients.map(ingredient => ({ id: reorderedId.get(ingredient.id)!, text: ingredient.text }));
   const chartStages = stages.map(stage => ({

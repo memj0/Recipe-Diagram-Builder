@@ -47,6 +47,15 @@ textarea:focus,input:focus { border-color:var(--lavender); box-shadow:0 0 0 3px 
 .tips-box h3 { margin:0 0 8px; font-size:18px; }
 .tips-box ul { margin:0; padding-left:20px; }
 .tips-box li { line-height:1.45; }
+.nutrition-box { border-top:1px solid var(--line); padding:12px 14px 13px; background:var(--lime); }
+.nutrition-heading { display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:10px; }
+.nutrition-heading h3 { margin:0; font-size:18px; }
+.nutrition-heading span,.nutrition-box p { color:var(--muted); font-size:11px; }
+.nutrition-box dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); margin:0; border:1px solid var(--line); }
+.nutrition-box dl > div { padding:8px 10px; border-right:1px solid var(--line); }
+.nutrition-box dt { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.nutrition-box dd { margin:3px 0 0; font-size:14px; font-weight:800; }
+.nutrition-box p { margin:8px 0 0; }
 @media (max-width:900px) { .workspace { grid-template-columns:1fr; } .input-card { position:static; } main { padding-inline:12px; } }
 @page { size:landscape; margin:8mm; }
 @media print { body { background:white; } .hero,.input-card,.preview-toolbar { display:none!important; } main,.workspace,.preview-card,.preview-scroll,.chart-viewport,.chart-fit { width:auto!important; height:auto!important; padding:0; margin:0; display:block; overflow:visible; border:0; box-shadow:none; } .chart-scale { transform:none!important; zoom:var(--print-scale,1); } .chart-shell { box-shadow:none; break-inside:avoid; } }

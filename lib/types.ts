@@ -14,6 +14,18 @@ export type RecipeChart = {
   finalIngredientIds?: string[];
   finalInputStageIds?: string[];
   tips?: string[];
+  nutrition?: {
+    serving?: string;
+    calories?: string;
+    carbohydrate?: string;
+    protein?: string;
+    fat?: string;
+    saturatedFat?: string;
+    fiber?: string;
+    sugar?: string;
+    sodium?: string;
+    source: "recipe" | "calculated";
+  };
   meta?: {
     method: "deterministic" | "ai-fallback";
     confidence: number;

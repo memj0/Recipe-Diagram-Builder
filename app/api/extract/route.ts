@@ -37,6 +37,30 @@ function instructionText(value: unknown): string[] {
   });
 }
 
+function textValue(value: unknown) {
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+}
+
+function extractNutrition(recipe: Record<string, unknown>) {
+  const raw = recipe.nutrition;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const nutrition = raw as Record<string, unknown>;
+  const result = {
+    serving: textValue(nutrition.servingSize) || textValue(recipe.recipeYield),
+    calories: textValue(nutrition.calories),
+    carbohydrate: textValue(nutrition.carbohydrateContent),
+    protein: textValue(nutrition.proteinContent),
+    fat: textValue(nutrition.fatContent),
+    saturatedFat: textValue(nutrition.saturatedFatContent),
+    fiber: textValue(nutrition.fiberContent),
+    sugar: textValue(nutrition.sugarContent),
+    sodium: textValue(nutrition.sodiumContent),
+    source: "recipe" as const
+  };
+  return Object.values(result).some((value, index) => index > 0 && value) ? result : undefined;
+}
+
 export async function POST(request: Request) {
   try {
     const { url } = await request.json();
@@ -62,7 +86,7 @@ export async function POST(request: Request) {
           const ingredients = Array.isArray(recipe.recipeIngredient) ? recipe.recipeIngredient.map(String) : [];
           const instructions = instructionText(recipe.recipeInstructions);
           const text = `${title}\n\nINGREDIENTS\n${ingredients.join("\n")}\n\nINSTRUCTIONS\n${instructions.join("\n")}`;
-          return NextResponse.json({ text });
+          return NextResponse.json({ text, nutrition: extractNutrition(recipe) });
         }
       } catch { /* try next JSON-LD block */ }
     }
