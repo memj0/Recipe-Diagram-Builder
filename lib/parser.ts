@@ -13,9 +13,28 @@ function titleCase(value: string) {
   return value.replace(/\b\w/g, char => char.toUpperCase());
 }
 
+function descriptiveAssemblyLabel(step: string) {
+  const match = step.match(/\b(assemble|sandwich|stack|layer|fill|coat|cover|spread|decorate)\b[^.!?;]*/i);
+  if (!match) return undefined;
+
+  const words = match[0]
+    .replace(/,?\s+(?:then|before|until|and (?:then|serve|chill|leave|put|place))\b.*$/i, "")
+    .replace(/\b(?:the|a|an|just|under|about|roughly|approximately|remaining|rest of|half of|half|some of|some)\b/gi, " ")
+    .replace(/\bcakes?\b/gi, "layers")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 8);
+
+  return words.length > 1 ? words.join(" ").toLowerCase() : undefined;
+}
+
 function actionLabel(step: string) {
   const componentName = step.match(/^\s*to make\s+(?:the\s+)?([a-z][a-z -]{1,28}?)(?:,|\s+(?:put|mix|stir|combine|add|heat|whisk|beat)\b)/i);
   if (componentName) return `make ${componentName[1].trim().toLowerCase()}`;
+
+  const assemblyLabel = descriptiveAssemblyLabel(step);
+  if (assemblyLabel) return assemblyLabel;
 
   let matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
     .filter(match => {
