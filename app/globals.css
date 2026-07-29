@@ -16,6 +16,8 @@ h1 { font-size:clamp(38px,6vw,76px); line-height:.95; letter-spacing:-.055em; ma
 label { display:block; font-weight:800; margin:0 0 8px; }
 textarea,input { width:100%; border:1px solid var(--line); border-radius:12px; background:#fff; padding:13px; outline:none; }
 textarea { resize:vertical; line-height:1.45; }
+.recipe-title-field { margin-bottom:12px; }
+.recipe-title-field label span { color:var(--muted); font-size:12px; font-weight:400; }
 textarea:focus,input:focus { border-color:var(--lavender); box-shadow:0 0 0 3px rgba(215,182,211,.45); }
 .primary { width:100%; margin-top:14px; border:0; border-radius:12px; padding:14px; background:var(--coral); color:var(--ink); font-weight:800; cursor:pointer; }
 .primary:disabled { opacity:.55; cursor:wait; }

@@ -36,11 +36,13 @@ const schema = {
 
 export async function POST(request: Request) {
   try {
-    const { recipeText, allowAiFallback = true, nutrition } = await request.json();
+    const { recipeText, recipeTitle, allowAiFallback = true, nutrition } = await request.json();
     if (typeof recipeText !== "string" || recipeText.trim().length < 30) return NextResponse.json({ error: "Paste a fuller recipe before generating a chart." }, { status: 400 });
     if (recipeText.length > 40000) return NextResponse.json({ error: "Recipe text is too long." }, { status: 400 });
 
     const deterministic = parseRecipeDeterministically(recipeText);
+    const suppliedTitle = typeof recipeTitle === "string" && recipeTitle.trim().length <= 120 ? recipeTitle.trim() : "";
+    if (suppliedTitle) deterministic.chart.title = suppliedTitle;
     const shouldUseAi = Boolean(allowAiFallback) && deterministic.confidence < 0.72 && Boolean(process.env.OPENAI_API_KEY);
 
     if (!shouldUseAi) {

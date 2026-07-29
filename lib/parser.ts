@@ -179,7 +179,7 @@ function parseSections(recipeText: string) {
     const start = ingredientsIndex >= 0 ? ingredientsIndex + 1 : title === first ? 1 : 0;
     for (const line of rawLines.slice(start, methodIndex)) {
       if (pageFurniture.test(line) || nutritionLine.test(line) || /keep the screen awake|per serving/i.test(line)) continue;
-      if ((/^(?:\(|or\b)/i.test(line) || /\bto serve$/i.test(line)) && ingredients.length) ingredients[ingredients.length - 1] += ` ${line}`;
+      if (/^(?:\(|or\b)/i.test(line) && ingredients.length) ingredients[ingredients.length - 1] += ` ${line}`;
       else if (line.length < 120) ingredients.push(line);
     }
 
@@ -206,6 +206,32 @@ function parseSections(recipeText: string) {
   };
 }
 
+function parseEmbeddedNutrition(recipeText: string): RecipeChart["nutrition"] | undefined {
+  function nutrient(names: string) {
+    const match = recipeText.match(new RegExp(`(?:^|\\n)\\s*(?:${names})\\s*:?\\s*(\\d+(?:\\.\\d+)?)\\s*(kcal|calories?|g|grams?|mg|milligrams?)?`, "im"));
+    if (!match) return undefined;
+    const unit = (match[2] || "g").toLowerCase();
+    if (/kcal|calorie/.test(unit)) return `${match[1]} calories`;
+    if (/^mg|milligram/.test(unit)) return `${match[1]} mg`;
+    return `${match[1]} g`;
+  }
+
+  const nutrition = {
+    serving: recipeText.match(/nutrition\s*:?\s*per\s+([^\r\n]+)/i)?.[1]?.trim()
+      || recipeText.match(/serves?\s+(\d+)/i)?.[1],
+    calories: nutrient("kcal|calories?"),
+    carbohydrate: nutrient("carbs?|carbohydrates?"),
+    protein: nutrient("protein"),
+    fat: nutrient("fat"),
+    saturatedFat: nutrient("saturates?|saturated fat"),
+    fiber: nutrient("fibre|fiber"),
+    sugar: nutrient("sugars?"),
+    sodium: nutrient("salt|sodium"),
+    source: "recipe" as const
+  };
+  return Object.entries(nutrition).some(([key, value]) => key !== "source" && value) ? nutrition : undefined;
+}
+
 export function parseRecipeDeterministically(recipeText: string): { chart: RecipeChart; confidence: number; warnings: string[] } {
   const parsed = parseSections(recipeText);
   const warnings: string[] = [];
@@ -227,8 +253,11 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   function ingredientsMentionedIn(instruction: string) {
     const instructionTokens = new Set(ingredientTokens(instruction));
     const candidates = ingredients.filter(ingredient => {
-      const matches = (tokensByIngredient.get(ingredient.id) || []).filter(token => instructionTokens.has(token));
-      return matches.length >= 2 || matches.some(token => tokenFrequency.get(token) === 1);
+      const ingredientTokenList = tokensByIngredient.get(ingredient.id) || [];
+      const matches = ingredientTokenList.filter(token => instructionTokens.has(token));
+      return matches.length >= 2
+        || (ingredientTokenList.length === 1 && matches.length === 1)
+        || matches.some(token => tokenFrequency.get(token) === 1);
     });
 
     const bySignature = new Map<string, typeof candidates>();
@@ -255,12 +284,24 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
       || /\b(?:in)?to the pan\b/i.test(instruction)
       || /^\s*(?:add|fold in|stir in|whisk in|beat in)\b/i.test(instruction);
     const matchedSet = new Set(matched);
+    const namedMixtureReference = /\b(?:the\s+)?(?:mixture|batter|dough)\b/i.test(instruction);
     const overlappingComponents = components
       .map((component, componentIndex) => ({ component, componentIndex }))
       .filter(({ component }) => matched.some(id => component.ingredientIds.has(id)));
     let inputStageIds: string[] = [];
 
-    if (mergesComponents && components.length) {
+    if (namedMixtureReference && !overlappingComponents.length && components.length > 1) {
+      const mainIndex = components.reduce((largest, component, componentIndex) =>
+        component.ingredientIds.size > components[largest].ingredientIds.size ? componentIndex : largest, 0);
+      const selectedIndices = new Set([mainIndex, currentComponent].filter(componentIndex => componentIndex >= 0));
+      const selected = components.filter((_, componentIndex) => selectedIndices.has(componentIndex));
+      inputStageIds = selected.flatMap(component => component.producerStageId ? [component.producerStageId] : []);
+      const merged = new Set(selected.flatMap(component => [...component.ingredientIds]));
+      matched.forEach(id => merged.add(id));
+      components = components.filter((_, componentIndex) => !selectedIndices.has(componentIndex));
+      components.push({ ingredientIds: merged, producerStageId: stageId });
+      currentComponent = components.length - 1;
+    } else if (mergesComponents && components.length) {
       inputStageIds = components.flatMap(component => component.producerStageId ? [component.producerStageId] : []);
       const merged = new Set(components.flatMap(component => [...component.ingredientIds]));
       matched.forEach(id => merged.add(id));
@@ -344,7 +385,8 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
     finalStep,
     finalIngredientIds: chartFinalIngredientIds,
     finalInputStageIds,
-    tips: separated.tips
+    tips: separated.tips,
+    nutrition: parseEmbeddedNutrition(recipeText)
   };
 
   return { chart, confidence, warnings };

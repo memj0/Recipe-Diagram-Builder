@@ -173,6 +173,7 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
 export default function Home() {
   const [mode, setMode] = useState<"text" | "url">("text");
   const [input, setInput] = useState("");
+  const [recipeTitle, setRecipeTitle] = useState("");
   const [recipe, setRecipe] = useState<RecipeChart>(sampleRecipe);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -200,7 +201,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeText, allowAiFallback: false, nutrition })
+        body: JSON.stringify({ recipeText, recipeTitle: mode === "text" ? recipeTitle : undefined, allowAiFallback: false, nutrition })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not create the chart.");
@@ -226,6 +227,12 @@ export default function Home() {
             <button type="button" className={mode === "text" ? "active" : ""} onClick={() => setMode("text")}>Paste recipe</button>
             <button type="button" className={mode === "url" ? "active" : ""} onClick={() => setMode("url")}>Recipe link</button>
           </div>
+          {mode === "text" && (
+            <div className="recipe-title-field">
+              <label htmlFor="recipe-title">Recipe title <span>(optional)</span></label>
+              <input id="recipe-title" value={recipeTitle} onChange={event => setRecipeTitle(event.target.value)} placeholder="For example, Easy Protein Pancakes" />
+            </div>
+          )}
           <label htmlFor="recipe-input">{mode === "text" ? "Recipe text" : "Public recipe URL"}</label>
           {mode === "text" ? (
             <textarea id="recipe-input" value={input} onChange={e => setInput(e.target.value)} placeholder="Paste ingredients and instructions here…" rows={12} />
