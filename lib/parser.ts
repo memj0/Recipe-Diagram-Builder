@@ -14,7 +14,10 @@ function titleCase(value: string) {
 }
 
 function actionLabel(step: string) {
-  const matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
+  const componentName = step.match(/^\s*to make\s+(?:the\s+)?([a-z][a-z -]{1,28}?)(?:,|\s+(?:put|mix|stir|combine|add|heat|whisk|beat)\b)/i);
+  if (componentName) return `make ${componentName[1].trim().toLowerCase()}`;
+
+  let matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
     .filter(match => {
       const before = step.slice(0, match.index).toLowerCase();
       const word = match[1].toLowerCase();
@@ -23,8 +26,20 @@ function actionLabel(step: string) {
       return true;
     })
     .map(match => match[1].toLowerCase())
-    .filter((word, index, words) => words.indexOf(word) === index)
-    .slice(0, 3);
+    .filter((word, index, words) => words.indexOf(word) === index);
+
+  if ((step.match(/\bmixtures?\b/gi)?.length || 0) >= 2 || /\beverything\b/i.test(step)) return "combine";
+
+  const cookingVerb = matches.find(word => /^(?:bake|roast|grill|fry|simmer|boil|chill|freeze)$/.test(word));
+  if (cookingVerb) return cookingVerb;
+
+  if (matches.some(word => /^(?:assemble|sandwich|stack|layer|fill|coat|cover)$/.test(word))) {
+    matches = matches.filter(word => !/^(?:put|pour|add|rest)$/.test(word));
+  } else if (matches.some(word => /^(?:mix|stir|whisk|beat|fold|blend|combine|heat|warm|melt|cool)$/.test(word))) {
+    matches = matches.filter(word => !/^(?:put|pour|add|leave|rest)$/.test(word));
+  }
+
+  matches = matches.slice(0, 2);
   const placement = step.match(/\bput\b[^.!?]*?\b(?:in|into)\s+(?:a|an|the)?\s*(pan|bowl|tin|dish|jug|pot|tray)\b/i);
   if (matches[0] === "put" && placement) matches[0] = `put in ${placement[1].toLowerCase()}`;
   return matches.length ? matches.join(" & ") : step.split(/[.,;]/, 1)[0].trim().split(/\s+/).slice(0, 3).join(" ").toLowerCase();
