@@ -49,13 +49,13 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
           const hasInputs = Boolean(stage.inputStageIds?.length);
           return (
             <div className="stage-group" key={stage.id}>
-              {stage.branch && !hasInputs && column > 2 && (
-                <>
-                  <div className="branch-route entry-route entry-route-top" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
-                  <div className="branch-route entry-route" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
-                </>
+              {column > 2 && (
+                <div className="branch-route entry-route" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
-              <div className={`stage-box${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
+              {stage.branch && !hasInputs && column > 2 && (
+                <div className="branch-route entry-route entry-route-top" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
+              )}
+              <div className={`stage-box${column > 2 ? " nested-box" : ""}${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
                 <strong>{stage.label}</strong>
                 <span>{stage.instruction}</span>
               </div>

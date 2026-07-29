@@ -32,6 +32,7 @@ textarea:focus,input:focus { border-color:#222; box-shadow:0 0 0 3px rgba(223,25
 .ingredient-last { border-bottom:0; }
 .stage-group,.final-route-group { display:contents; }
 .stage-box { z-index:2; min-height:58px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:10px 7px; text-align:center; overflow-wrap:anywhere; background:var(--paper); border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
+.nested-box { border-left:3px solid var(--line); }
 .branch-box { border-top:3px solid var(--line); }
 .merge-box { border-left:3px solid var(--line); }
 .branch-route { z-index:1; align-self:end; height:0; border-top:3px solid var(--line); pointer-events:none; }
