@@ -7,8 +7,10 @@ export type RecipeChart = {
     label: string;
     ingredientIds: string[];
     instruction: string;
+    branch?: boolean;
   }>;
   finalStep: string;
+  finalIngredientIds?: string[];
   meta?: {
     method: "deterministic" | "ai-fallback";
     confidence: number;

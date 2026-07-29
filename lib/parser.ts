@@ -2,9 +2,8 @@ import type { RecipeChart } from "./types";
 
 const sectionHeadings = /^(ingredients?|what you(?:'|’)ll need|instructions?|method|directions?|steps?|preparation)\s*:?[\s]*$/i;
 const ingredientStart = /^(?:\d+\s+)?(?:\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)?\s*(?:cups?|tbsps?|tablespoons?|tsps?|teaspoons?|grams?|g|kg|ml|l|oz|ounces?|lb|lbs|pounds?|cloves?|cans?|packets?|pinch|dash|handful|large|medium|small)?\b/i;
-const actionWords = /(preheat|heat|melt|whisk|mix|stir|fold|beat|blend|combine|add|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|rest|serve|season|slice|chop|dice|knead|roll|assemble|spread|line|grease)/i;
+const actionWords = /(preheat|heat|melt|whisk|mix|stir|fold|beat|blend|combine|add|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|rest|serve|season|slice|chop|dice|knead|roll|assemble|spread|line|grease)/i;
 const prepWords = /(preheat|grease|butter .*pan|line .*pan|prepare .*tin|set .*oven|heat oven)/i;
-const finalWords = /(bake|roast|grill|simmer|boil|chill|freeze|rest|serve|cool|decorate|garnish)/i;
 
 function cleanLine(value: string) {
   return value.replace(/^[\s•●▪◦*-]+/, "").replace(/^\d+[.)]\s*/, "").replace(/\s+/g, " ").trim();
@@ -29,10 +28,11 @@ function ingredientTokens(text: string) {
   return text
     .toLowerCase()
     .replace(/\([^)]*\)/g, " ")
-    .replace(/\b(?:to taste|divided|plus more|for serving|optional|fresh|ground|unsalted|salted|large|medium|small|finely|roughly|chopped|diced|sliced|melted|softened)\b/g, " ")
+    .replace(/\b(?:to taste|divided|plus more|for serving|optional|fresh|ground|unsalted|salted|large|medium|small|finely|roughly|chopped|diced|sliced|melted|softened|the|and|for|with|into|from|plus|extra|remaining|little|very|handful|decoration|prepared)\b/g, " ")
     .replace(/\d+(?:\.\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞]|\b(?:cup|cups|tbsp|tablespoon|tsp|teaspoon|g|kg|ml|l|oz|ounce|ounces|lb|lbs|pound|clove|cloves|can|cans|pinch|dash)\b/g, " ")
     .split(/[^a-z]+/)
-    .filter(word => word.length > 2);
+    .filter(word => word.length > 2)
+    .map(word => word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word);
 }
 
 function parseSections(recipeText: string) {
@@ -75,29 +75,45 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   const ingredients = parsed.ingredients.map((text, index) => ({ id: `i${index + 1}`, text }));
   const prepNotes = parsed.instructions.filter(step => prepWords.test(step)).slice(0, 4);
   const cookingSteps = parsed.instructions.filter(step => !prepNotes.includes(step));
-  const finalIndex = cookingSteps.findLastIndex(step => finalWords.test(step));
-  const finalStep = finalIndex >= 0 ? cookingSteps[finalIndex] : cookingSteps.at(-1) || "Serve when ready.";
-  const stageSteps = cookingSteps.filter((_, index) => index !== finalIndex).slice(0, 8);
+  const finalIndex = cookingSteps.length - 1;
+  const finalStep = cookingSteps.at(-1) || "Serve when ready.";
+  const stageSteps = cookingSteps.slice(0, -1).slice(0, 8);
+  const mainIngredientIds = new Set<string>();
+  const tokensByIngredient = new Map(ingredients.map(ingredient => [ingredient.id, ingredientTokens(ingredient.text)]));
+  const tokenFrequency = new Map<string, number>();
+  tokensByIngredient.forEach(tokens => new Set(tokens).forEach(token => tokenFrequency.set(token, (tokenFrequency.get(token) || 0) + 1)));
+
+  function ingredientsMentionedIn(instruction: string) {
+    const instructionTokens = new Set(ingredientTokens(instruction));
+    return ingredients.filter(ingredient => {
+      const matches = (tokensByIngredient.get(ingredient.id) || []).filter(token => instructionTokens.has(token));
+      return matches.length >= 2 || matches.some(token => tokenFrequency.get(token) === 1);
+    }).map(ingredient => ingredient.id);
+  }
 
   const stages = stageSteps.map((instruction, index) => {
-    const lower = instruction.toLowerCase();
-    let matched = ingredients.filter(ingredient => {
-      const tokens = ingredientTokens(ingredient.text);
-      return tokens.some(token => lower.includes(token));
-    }).map(ingredient => ingredient.id);
+    const matched = ingredientsMentionedIn(instruction);
+    const newMatches = matched.filter(id => !mainIngredientIds.has(id));
+    const referencesMainMixture = /\b(mixture|batter|dough|cake|loaf|combined|everything)\b/i.test(instruction);
+    const branch = mainIngredientIds.size > 0 && matched.length > 0 && newMatches.length === matched.length && !referencesMainMixture;
 
-    if (!matched.length && ingredients.length) {
-      const progressiveEnd = Math.max(1, Math.ceil(((index + 1) / Math.max(stageSteps.length, 1)) * ingredients.length));
-      matched = ingredients.slice(0, progressiveEnd).map(ingredient => ingredient.id);
-    }
+    if (!branch) matched.forEach(id => mainIngredientIds.add(id));
+    const ingredientIds = branch
+      ? matched
+      : mainIngredientIds.size
+        ? [...mainIngredientIds]
+        : matched;
 
     return {
       id: `s${index + 1}`,
       label: actionLabel(instruction),
-      ingredientIds: matched,
-      instruction
+      ingredientIds,
+      instruction,
+      branch
     };
   });
+
+  const finalIngredientIds = ingredientsMentionedIn(finalStep);
 
   if (!ingredients.length) warnings.push("No clear ingredient list was detected.");
   if (parsed.instructions.length < 2) warnings.push("Only a small number of instruction steps were detected.");
@@ -117,7 +133,8 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
     prepNotes,
     ingredients: ingredients.length ? ingredients : [{ id: "i1", text: "Ingredients could not be identified" }],
     stages: stages.length ? stages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients." }],
-    finalStep
+    finalStep,
+    finalIngredientIds
   };
 
   return { chart, confidence, warnings };
