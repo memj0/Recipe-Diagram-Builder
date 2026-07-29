@@ -28,8 +28,8 @@ textarea:focus,input:focus { border-color:var(--lavender); box-shadow:0 0 0 3px 
 .chart-fit { position:relative; }
 .chart-scale { width:max-content; transform-origin:top left; }
 .chart-shell { width:max-content; background:var(--paper); border:2px solid var(--green); box-shadow:0 0 0 7px var(--lavender); }
-.chart-shell h2 { margin:0; padding:10px 16px; text-align:center; font-size:20px; border-bottom:1px solid var(--line); }
-.prep-note { text-align:center; font-size:13px; padding:7px 10px; border-bottom:1px solid var(--line); }
+.chart-shell h2 { margin:0; padding:10px 16px; text-align:center; font-size:20px; line-height:1.25; overflow-wrap:anywhere; border-bottom:1px solid var(--line); }
+.prep-note { max-width:100%; text-align:center; font-size:13px; line-height:1.4; white-space:normal; overflow-wrap:anywhere; padding:7px 10px; border-bottom:1px solid var(--line); }
 .flow-grid { display:grid; align-items:stretch; width:max-content; position:relative; }
 .ingredient { padding:7px 10px; display:flex; align-items:center; font-size:13px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
 .ingredient-last { border-bottom:0; }

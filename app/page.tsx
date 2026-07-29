@@ -11,13 +11,14 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
   const ingredientWidth = Math.min(480, Math.max(280, longestIngredient * 6.5 + 28));
   const stageWidths = recipe.stages.map(stage => Math.min(112, Math.max(76, stage.label.length * 6 + 20)));
   const finalWidth = Math.min(180, Math.max(130, recipe.finalStep.length * 1.8));
+  const chartWidth = ingredientWidth + stageWidths.reduce((total, width) => total + width, 0) + finalWidth;
   const ingredientIndex = useMemo(
     () => new Map(recipe.ingredients.map((ingredient, index) => [ingredient.id, index + 1])),
     [recipe.ingredients]
   );
 
   return (
-    <section className="chart-shell" id="recipe-chart" aria-label={`${recipe.title} flowchart`}>
+    <section className="chart-shell" id="recipe-chart" aria-label={`${recipe.title} flowchart`} style={{ width: chartWidth }}>
       <h2>{recipe.title}</h2>
       {recipe.prepNotes.map((note, index) => <div className="prep-note" key={index}>{note}</div>)}
       <div
