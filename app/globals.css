@@ -30,12 +30,12 @@ textarea:focus,input:focus { border-color:#222; box-shadow:0 0 0 3px rgba(223,25
 .flow-grid { display:grid; align-items:stretch; width:max-content; position:relative; }
 .ingredient { padding:10px 12px; display:flex; align-items:center; font-size:18px; border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
 .ingredient-last { border-bottom:0; }
-.stage-group { display:contents; }
-.stage-lane { border-right:3px solid var(--line); min-width:0; }
+.stage-group,.final-route-group { display:contents; }
 .stage-box { z-index:2; min-height:58px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:10px 7px; text-align:center; overflow-wrap:anywhere; background:var(--paper); border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
 .branch-box { border-top:3px solid var(--line); }
 .merge-box { border-left:3px solid var(--line); }
 .branch-route { z-index:1; align-self:end; height:0; border-top:3px solid var(--line); pointer-events:none; }
+.entry-route-top { align-self:start; }
 .stage-box strong { font-size:20px; text-transform:lowercase; }
 .stage-box span { display:none; }
 .final-column { display:flex; align-items:center; justify-content:center; text-align:center; padding:16px; font-size:21px; line-height:1.35; }
