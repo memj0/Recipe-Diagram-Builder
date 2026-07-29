@@ -81,8 +81,8 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
         </div>
       </div>
       {recipe.tips && recipe.tips.length > 0 && (
-        <aside className="tips-box" aria-label="Recipe tips and storage information">
-          <h3>Tips &amp; tricks</h3>
+        <aside className="tips-box" aria-label="Recipe notes and storage information">
+          <h3>Recipe notes</h3>
           <ul>{recipe.tips.map((tip, index) => <li key={index}>{tip}</li>)}</ul>
         </aside>
       )}
@@ -137,7 +137,6 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [recipe, setRecipe] = useState<RecipeChart>(sampleRecipe);
   const [loading, setLoading] = useState(false);
-  const [allowAiFallback, setAllowAiFallback] = useState(true);
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent) {
@@ -161,7 +160,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeText, allowAiFallback })
+        body: JSON.stringify({ recipeText, allowAiFallback: false })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not create the chart.");
@@ -178,7 +177,7 @@ export default function Home() {
       <header className="hero">
         <span className="eyebrow">RECIPE → FLOWCHART</span>
         <h1>Turn any written recipe into a visual cooking chart.</h1>
-        <p>The website first uses its own deterministic parser to identify ingredients, actions and cooking stages. AI is only used as an optional fallback when the recipe structure is too ambiguous.</p>
+        <p>The website uses its built-in parser to identify ingredients, actions, branches and cooking stages.</p>
       </header>
 
       <section className="workspace">
@@ -193,13 +192,9 @@ export default function Home() {
           ) : (
             <input id="recipe-input" type="url" value={input} onChange={e => setInput(e.target.value)} placeholder="https://example.com/recipe" />
           )}
-          <label className="fallback-option">
-            <input type="checkbox" checked={allowAiFallback} onChange={event => setAllowAiFallback(event.target.checked)} />
-            <span><strong>Allow AI fallback</strong><small>Only activates when the built-in parser has low confidence.</small></span>
-          </label>
           <button className="primary" disabled={loading}>{loading ? "Building chart…" : "Create recipe chart"}</button>
           {error && <p className="error">{error}</p>}
-          <p className="hint">The main engine is non-AI. Recipe JSON-LD, section detection, action matching and ingredient-to-step mapping are handled deterministically.</p>
+          <p className="hint">Recipe extraction, section detection, action matching and ingredient-to-step mapping are handled by the built-in parser.</p>
         </form>
 
         <div className="preview-card">

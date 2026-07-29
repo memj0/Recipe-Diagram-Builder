@@ -219,6 +219,19 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
 
   const finalIngredientIds = ingredientsMentionedIn(finalStep);
   const finalInputStageIds = [...new Set(components.flatMap(component => component.producerStageId ? [component.producerStageId] : []))];
+  const stageIngredientIds = new Set(stages.flatMap(stage => stage.ingredientIds));
+  const finalOnlyIds = new Set(finalIngredientIds.filter(id => !stageIngredientIds.has(id)));
+  const orderedIngredients = [
+    ...ingredients.filter(ingredient => !finalOnlyIds.has(ingredient.id)),
+    ...ingredients.filter(ingredient => finalOnlyIds.has(ingredient.id))
+  ];
+  const reorderedId = new Map(orderedIngredients.map((ingredient, index) => [ingredient.id, `i${index + 1}`]));
+  const chartIngredients = orderedIngredients.map(ingredient => ({ id: reorderedId.get(ingredient.id)!, text: ingredient.text }));
+  const chartStages = stages.map(stage => ({
+    ...stage,
+    ingredientIds: stage.ingredientIds.map(id => reorderedId.get(id) || id)
+  }));
+  const chartFinalIngredientIds = finalIngredientIds.map(id => reorderedId.get(id) || id);
 
   if (!ingredients.length) warnings.push("No clear ingredient list was detected.");
   if (parsed.instructions.length < 2) warnings.push("Only a small number of instruction steps were detected.");
@@ -236,10 +249,10 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   const chart: RecipeChart = {
     title: parsed.title,
     prepNotes,
-    ingredients: ingredients.length ? ingredients : [{ id: "i1", text: "Ingredients could not be identified" }],
-    stages: stages.length ? stages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients.", inputStageIds: [] }],
+    ingredients: chartIngredients.length ? chartIngredients : [{ id: "i1", text: "Ingredients could not be identified" }],
+    stages: chartStages.length ? chartStages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients.", inputStageIds: [] }],
     finalStep,
-    finalIngredientIds,
+    finalIngredientIds: chartFinalIngredientIds,
     finalInputStageIds,
     tips: separated.tips
   };
