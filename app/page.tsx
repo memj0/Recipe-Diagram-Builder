@@ -7,6 +7,10 @@ import { sampleRecipe } from "../lib/sample";
 function Chart({ recipe }: { recipe: RecipeChart }) {
   const rows = recipe.ingredients.length;
   const finalColumn = recipe.stages.length + 2;
+  const longestIngredient = Math.max(...recipe.ingredients.map(ingredient => ingredient.text.length), 20);
+  const ingredientWidth = Math.min(560, Math.max(300, longestIngredient * 7.5 + 32));
+  const stageWidths = recipe.stages.map(stage => Math.min(140, Math.max(84, stage.label.length * 7 + 24)));
+  const finalWidth = Math.min(220, Math.max(140, recipe.finalStep.length * 2.2));
   const ingredientIndex = useMemo(
     () => new Map(recipe.ingredients.map((ingredient, index) => [ingredient.id, index + 1])),
     [recipe.ingredients]
@@ -19,8 +23,8 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
       <div
         className="flow-grid"
         style={{
-          gridTemplateColumns: `minmax(310px, 2.7fr) repeat(${recipe.stages.length}, minmax(92px, .72fr)) minmax(140px, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, minmax(58px, auto))`
+          gridTemplateColumns: `${ingredientWidth}px ${stageWidths.map(width => `${width}px`).join(" ")} ${finalWidth}px`,
+          gridTemplateRows: `repeat(${rows}, minmax(48px, auto))`
         }}
       >
         {recipe.ingredients.map((ingredient, index) => (
