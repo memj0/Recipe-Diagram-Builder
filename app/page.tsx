@@ -4,7 +4,7 @@ import { CSSProperties, FormEvent, useLayoutEffect, useMemo, useRef, useState } 
 import type { RecipeChart } from "../lib/types";
 import { sampleRecipe } from "../lib/sample";
 
-function Chart({ recipe }: { recipe: RecipeChart }) {
+function Chart({ recipe, guidedStep }: { recipe: RecipeChart; guidedStep: number | null }) {
   const rows = recipe.ingredients.length;
   const finalColumn = recipe.stages.length + 2;
   const longestIngredient = Math.max(...recipe.ingredients.map(ingredient => ingredient.text.length), 20);
@@ -16,6 +16,15 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
     () => new Map(recipe.ingredients.map((ingredient, index) => [ingredient.id, index + 1])),
     [recipe.ingredients]
   );
+  const guidedIngredientIds = useMemo(() => {
+    if (guidedStep === null) return new Set<string>();
+    if (guidedStep < recipe.stages.length) return new Set(recipe.stages[guidedStep].ingredientIds);
+    const finalInputs = new Set(recipe.finalInputStageIds || []);
+    return new Set([
+      ...(recipe.finalIngredientIds || []),
+      ...recipe.stages.filter(stage => finalInputs.has(stage.id)).flatMap(stage => stage.ingredientIds)
+    ]);
+  }, [guidedStep, recipe]);
 
   return (
     <section className="chart-shell" id="recipe-chart" aria-label={`${recipe.title} flowchart`} style={{ width: chartWidth }}>
@@ -29,7 +38,7 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
         }}
       >
         {recipe.ingredients.map((ingredient, index) => (
-          <div className={`ingredient${index === rows - 1 ? " ingredient-last" : ""}`} key={ingredient.id} style={{ gridColumn: 1, gridRow: index + 1 }}>
+          <div className={`ingredient${index === rows - 1 ? " ingredient-last" : ""}${guidedStep !== null ? guidedIngredientIds.has(ingredient.id) ? " guided-active" : " guided-muted" : ""}`} key={ingredient.id} style={{ gridColumn: 1, gridRow: index + 1 }}>
             {ingredient.text}
           </div>
         ))}
@@ -48,6 +57,7 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
               ? finalColumn
               : undefined;
           const hasInputs = Boolean(stage.inputStageIds?.length);
+          const guidedClass = guidedStep === null ? "" : guidedStep === stageIndex ? " guided-active" : " guided-muted";
           return (
             <div className="stage-group" key={stage.id}>
               {column > 2 && (
@@ -56,7 +66,7 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
               {stage.branch && !hasInputs && column > 2 && (
                 <div className="branch-route entry-route entry-route-top" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
-              <div className={`stage-box${column > 2 ? " nested-box" : ""}${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
+              <div className={`stage-box${column > 2 ? " nested-box" : ""}${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}${guidedClass}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
                 <strong>{stage.label}</strong>
                 <span>{stage.instruction}</span>
               </div>
@@ -77,7 +87,7 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
           ) : null;
         })}
 
-        <div className="final-column" style={{ gridColumn: finalColumn, gridRow: `1 / span ${rows}` }}>
+        <div className={`final-column${guidedStep !== null ? guidedStep === recipe.stages.length ? " guided-active" : " guided-muted" : ""}`} style={{ gridColumn: finalColumn, gridRow: `1 / span ${rows}` }}>
           <strong>{recipe.finalStep}</strong>
         </div>
       </div>
@@ -119,6 +129,7 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 1, width: 0, height: 0, printScale: 1 });
   const [zoom, setZoom] = useState(1);
+  const [guidedStep, setGuidedStep] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
@@ -126,6 +137,7 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
     if (!viewport || !content) return;
 
     setZoom(1);
+    setGuidedStep(null);
     const updateFit = () => {
       const naturalWidth = content.scrollWidth;
       const naturalHeight = content.scrollHeight;
@@ -155,6 +167,18 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
 
   return (
     <div className="preview-scroll">
+      <div className="guide-controls" aria-label="Guided recipe controls">
+        {guidedStep === null ? (
+          <button type="button" onClick={() => setGuidedStep(0)}>Start step guide</button>
+        ) : (
+          <>
+            <button type="button" onClick={() => setGuidedStep(step => step === null ? 0 : Math.max(0, step - 1))} disabled={guidedStep === 0} aria-label="Previous recipe step">←</button>
+            <span>Step {guidedStep + 1} of {recipe.stages.length + 1}</span>
+            <button type="button" onClick={() => setGuidedStep(step => step === null ? 0 : Math.min(recipe.stages.length, step + 1))} disabled={guidedStep === recipe.stages.length} aria-label="Next recipe step">→</button>
+            <button type="button" className="guide-exit" onClick={() => setGuidedStep(null)}>Show all steps</button>
+          </>
+        )}
+      </div>
       <div className="zoom-controls" aria-label="Diagram zoom controls">
         <button type="button" className="zoom-word" onClick={() => setZoom(value => Math.max(.6, Number((value - .2).toFixed(1))))} disabled={zoom <= .6}>Zoom out</button>
         <output aria-live="polite">{Math.round(zoom * 100)}%</output>
@@ -163,7 +187,7 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
       </div>
       <div className="chart-viewport" ref={viewportRef}>
         <div className="chart-fit" style={fitStyle}>
-          <div className="chart-scale" ref={contentRef} style={scaleStyle}><Chart recipe={recipe} /></div>
+          <div className="chart-scale" ref={contentRef} style={scaleStyle}><Chart recipe={recipe} guidedStep={guidedStep} /></div>
         </div>
       </div>
     </div>
