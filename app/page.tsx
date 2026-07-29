@@ -118,12 +118,14 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 1, width: 0, height: 0, printScale: 1 });
+  const [zoom, setZoom] = useState(1);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     const content = contentRef.current;
     if (!viewport || !content) return;
 
+    setZoom(1);
     const updateFit = () => {
       const naturalWidth = content.scrollWidth;
       const naturalHeight = content.scrollHeight;
@@ -139,14 +141,26 @@ function FittedChart({ recipe }: { recipe: RecipeChart }) {
     return () => observer.disconnect();
   }, [recipe]);
 
-  const fitStyle = { width: fit.width || undefined, height: fit.height || undefined };
+  const displayScale = fit.scale * zoom;
+  const naturalWidth = fit.scale ? fit.width / fit.scale : 0;
+  const naturalHeight = fit.scale ? fit.height / fit.scale : 0;
+  const fitStyle = {
+    width: naturalWidth ? naturalWidth * displayScale : undefined,
+    height: naturalHeight ? naturalHeight * displayScale : undefined
+  };
   const scaleStyle = {
-    transform: `scale(${fit.scale})`,
+    transform: `scale(${displayScale})`,
     "--print-scale": fit.printScale
   } as CSSProperties;
 
   return (
     <div className="preview-scroll">
+      <div className="zoom-controls" aria-label="Diagram zoom controls">
+        <button type="button" onClick={() => setZoom(value => Math.max(.6, Number((value - .2).toFixed(1))))} disabled={zoom <= .6} aria-label="Zoom out">−</button>
+        <output aria-live="polite">{Math.round(zoom * 100)}%</output>
+        <button type="button" onClick={() => setZoom(value => Math.min(3, Number((value + .2).toFixed(1))))} disabled={zoom >= 3} aria-label="Zoom in">+</button>
+        <button type="button" className="zoom-fit" onClick={() => setZoom(1)}>Fit</button>
+      </div>
       <div className="chart-viewport" ref={viewportRef}>
         <div className="chart-fit" style={fitStyle}>
           <div className="chart-scale" ref={contentRef} style={scaleStyle}><Chart recipe={recipe} /></div>
