@@ -34,6 +34,7 @@ textarea:focus,input:focus { border-color:#222; box-shadow:0 0 0 3px rgba(223,25
 .stage-lane { border-right:3px solid var(--line); min-width:0; }
 .stage-box { z-index:1; min-height:58px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:10px 7px; text-align:center; background:var(--paper); border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
 .branch-box { border-top:3px solid var(--line); }
+.merge-box { border-left:3px solid var(--line); }
 .branch-route { z-index:2; align-self:center; height:0; border-top:3px solid var(--line); pointer-events:none; }
 .stage-box strong { font-size:20px; text-transform:lowercase; }
 .stage-box span { display:none; }

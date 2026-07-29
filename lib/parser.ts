@@ -2,7 +2,7 @@ import type { RecipeChart } from "./types";
 
 const sectionHeadings = /^(ingredients?|what you(?:'|’)ll need|instructions?|method|directions?|steps?|preparation)\s*:?[\s]*$/i;
 const ingredientStart = /^(?:\d+\s+)?(?:\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)?\s*(?:cups?|tbsps?|tablespoons?|tsps?|teaspoons?|grams?|g|kg|ml|l|oz|ounces?|lb|lbs|pounds?|cloves?|cans?|packets?|pinch|dash|handful|large|medium|small)?\b/i;
-const actionWords = /\b(preheat|heat|warm|melt|whisk|mix|stir|fold|beat|blend|combine|add|put|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|chop|dice|knead|roll|assemble|sandwich|spread|line|grease|decorate)\b/i;
+const actionWords = /\b(preheat|heat|warm|melt|whisk|mix|stir|fold|beat|blend|combine|add|put|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|cut|chop|dice|knead|roll|assemble|sandwich|stack|layer|fill|coat|cover|spread|line|grease|decorate)\b/i;
 const prepWords = /(preheat|grease|butter .*pan|line .*pan|prepare .*tin|set .*oven|heat (?:the )?oven)/i;
 
 function cleanLine(value: string) {
@@ -14,17 +14,11 @@ function titleCase(value: string) {
 }
 
 function actionLabel(step: string) {
-  const match = step.match(actionWords);
-  if (!match) return "combine";
-  const word = match[1].toLowerCase();
-  if (word === "combine" || word === "add" || word === "stir" || word === "put") return "mix";
-  if (word === "beat") return "whisk";
-  if (word === "warm") return "melt";
-  if (word === "leave") return "cool";
-  if (word === "sandwich") return "assemble";
-  if (word === "roast" || word === "grill" || word === "fry") return "cook";
-  if (word === "freeze") return "chill";
-  return word;
+  const matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
+    .map(match => match[1].toLowerCase())
+    .filter((word, index, words) => words.indexOf(word) === index)
+    .slice(0, 3);
+  return matches.length ? matches.join(" & ") : step.split(/[.,;]/, 1)[0].trim().split(/\s+/).slice(0, 3).join(" ").toLowerCase();
 }
 
 function ingredientTokens(text: string) {
@@ -82,7 +76,8 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   const finalStep = cookingSteps.at(-1) || "Serve when ready.";
   const stageSteps = cookingSteps.slice(0, -1).slice(0, 16);
   const usedIngredientIds = new Set<string>();
-  let components: Array<Set<string>> = [];
+  type Component = { ingredientIds: Set<string>; producerStageId?: string };
+  let components: Component[] = [];
   let currentComponent = -1;
   const tokensByIngredient = new Map(ingredients.map(ingredient => [ingredient.id, ingredientTokens(ingredient.text)]));
   const tokenFrequency = new Map<string, number>();
@@ -107,6 +102,7 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
   }
 
   const stages = stageSteps.map((instruction, index) => {
+    const stageId = `s${index + 1}`;
     const matched = ingredientsMentionedIn(instruction);
     matched.forEach(id => usedIngredientIds.add(id));
     const mixtureMentions = instruction.match(/\bmixtures?\b/gi)?.length || 0;
@@ -120,39 +116,51 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
     const matchedSet = new Set(matched);
     const overlappingComponents = components
       .map((component, componentIndex) => ({ component, componentIndex }))
-      .filter(({ component }) => matched.some(id => component.has(id)));
+      .filter(({ component }) => matched.some(id => component.ingredientIds.has(id)));
+    let inputStageIds: string[] = [];
 
     if (mergesComponents && components.length) {
-      const merged = new Set(components.flatMap(component => [...component]));
+      inputStageIds = components.flatMap(component => component.producerStageId ? [component.producerStageId] : []);
+      const merged = new Set(components.flatMap(component => [...component.ingredientIds]));
       matched.forEach(id => merged.add(id));
-      components = [merged];
+      components = [{ ingredientIds: merged, producerStageId: stageId }];
       currentComponent = 0;
     } else if (overlappingComponents.length) {
       const mergedIndices = new Set(overlappingComponents.map(({ componentIndex }) => componentIndex));
       const merged = new Set(matched);
-      overlappingComponents.forEach(({ component }) => component.forEach(id => merged.add(id)));
+      inputStageIds = overlappingComponents.flatMap(({ component }) => component.producerStageId ? [component.producerStageId] : []);
+      overlappingComponents.forEach(({ component }) => component.ingredientIds.forEach(id => merged.add(id)));
       components = components.filter((_, componentIndex) => !mergedIndices.has(componentIndex));
-      components.push(merged);
+      components.push({ ingredientIds: merged, producerStageId: stageId });
       currentComponent = components.length - 1;
     } else if (matched.length && referencesCurrentFlow && !startsNewComponent && currentComponent >= 0) {
-      matched.forEach(id => components[currentComponent].add(id));
+      const component = components[currentComponent];
+      if (component.producerStageId) inputStageIds = [component.producerStageId];
+      matched.forEach(id => component.ingredientIds.add(id));
+      component.producerStageId = stageId;
     } else if (matched.length) {
-      components.push(matchedSet);
+      components.push({ ingredientIds: matchedSet, producerStageId: stageId });
       currentComponent = components.length - 1;
+    } else if (currentComponent >= 0) {
+      const component = components[currentComponent];
+      if (component.producerStageId) inputStageIds = [component.producerStageId];
+      component.producerStageId = stageId;
     }
-    const ingredientIds = currentComponent >= 0 ? [...components[currentComponent]] : matched;
+    const ingredientIds = currentComponent >= 0 ? [...components[currentComponent].ingredientIds] : matched;
     const branch = components.length > 1 && currentComponent > 0;
 
     return {
-      id: `s${index + 1}`,
+      id: stageId,
       label: actionLabel(instruction),
       ingredientIds,
       instruction,
-      branch
+      branch,
+      inputStageIds: [...new Set(inputStageIds)]
     };
   });
 
   const finalIngredientIds = ingredientsMentionedIn(finalStep);
+  const finalInputStageIds = [...new Set(components.flatMap(component => component.producerStageId ? [component.producerStageId] : []))];
 
   if (!ingredients.length) warnings.push("No clear ingredient list was detected.");
   if (parsed.instructions.length < 2) warnings.push("Only a small number of instruction steps were detected.");
@@ -171,9 +179,10 @@ export function parseRecipeDeterministically(recipeText: string): { chart: Recip
     title: parsed.title,
     prepNotes,
     ingredients: ingredients.length ? ingredients : [{ id: "i1", text: "Ingredients could not be identified" }],
-    stages: stages.length ? stages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients." }],
+    stages: stages.length ? stages : [{ id: "s1", label: "prepare", ingredientIds: ["i1"], instruction: cookingSteps[0] || "Review and prepare the recipe ingredients.", inputStageIds: [] }],
     finalStep,
-    finalIngredientIds
+    finalIngredientIds,
+    finalInputStageIds
   };
 
   return { chart, confidence, warnings };

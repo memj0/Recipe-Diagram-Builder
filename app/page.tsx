@@ -34,18 +34,27 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
           const start = indices.length ? Math.min(...indices) : 1;
           const end = indices.length ? Math.max(...indices) : rows;
           const column = stageIndex + 2;
+          const consumerIndex = recipe.stages.findIndex((candidate, candidateIndex) =>
+            candidateIndex > stageIndex && candidate.inputStageIds?.includes(stage.id)
+          );
+          const consumerColumn = consumerIndex >= 0
+            ? consumerIndex + 2
+            : recipe.finalInputStageIds?.includes(stage.id)
+              ? finalColumn
+              : undefined;
+          const hasInputs = Boolean(stage.inputStageIds?.length);
           return (
             <div className="stage-group" key={stage.id}>
               <div className="stage-lane" aria-hidden="true" style={{ gridColumn: column, gridRow: `1 / span ${rows}` }} />
-              {stage.branch && column > 2 && (
+              {stage.branch && !hasInputs && column > 2 && (
                 <div className="branch-route" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
-              <div className={`stage-box${stage.branch ? " branch-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
+              <div className={`stage-box${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
                 <strong>{stage.label}</strong>
                 <span>{stage.instruction}</span>
               </div>
-              {stage.branch && column + 1 < finalColumn && (
-                <div className="branch-route" aria-hidden="true" style={{ gridColumn: `${column + 1} / ${finalColumn}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
+              {consumerColumn && column + 1 < consumerColumn && (
+                <div className="branch-route" aria-hidden="true" style={{ gridColumn: `${column + 1} / ${consumerColumn}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
             </div>
           );

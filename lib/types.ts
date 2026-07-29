@@ -8,9 +8,11 @@ export type RecipeChart = {
     ingredientIds: string[];
     instruction: string;
     branch?: boolean;
+    inputStageIds?: string[];
   }>;
   finalStep: string;
   finalIngredientIds?: string[];
+  finalInputStageIds?: string[];
   meta?: {
     method: "deterministic" | "ai-fallback";
     confidence: number;

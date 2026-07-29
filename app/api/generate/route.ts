@@ -7,7 +7,7 @@ export const maxDuration = 60;
 const schema = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "prepNotes", "ingredients", "stages", "finalStep", "finalIngredientIds"],
+  required: ["title", "prepNotes", "ingredients", "stages", "finalStep", "finalIngredientIds", "finalInputStageIds"],
   properties: {
     title: { type: "string" },
     prepNotes: { type: "array", items: { type: "string" }, maxItems: 4 },
@@ -18,16 +18,18 @@ const schema = {
     stages: {
       type: "array", minItems: 1, maxItems: 16,
       items: {
-        type: "object", additionalProperties: false, required: ["id", "label", "ingredientIds", "instruction", "branch"],
+        type: "object", additionalProperties: false, required: ["id", "label", "ingredientIds", "instruction", "branch", "inputStageIds"],
         properties: {
           id: { type: "string" }, label: { type: "string" }, instruction: { type: "string" },
           ingredientIds: { type: "array", items: { type: "string" }, minItems: 1 },
-          branch: { type: "boolean" }
+          branch: { type: "boolean" },
+          inputStageIds: { type: "array", items: { type: "string" } }
         }
       }
     },
     finalStep: { type: "string" },
-    finalIngredientIds: { type: "array", items: { type: "string" } }
+    finalIngredientIds: { type: "array", items: { type: "string" } },
+    finalInputStageIds: { type: "array", items: { type: "string" } }
   }
 };
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
         store: false,
-        instructions: "You are a fallback parser. Convert the supplied recipe into compact, accurate flowchart data only when deterministic parsing was uncertain. Preserve quantities and temperatures. List every ingredient once in original order. Ingredient ids must be i1, i2, etc. Each stage should represent one meaningful cooking action. Use short labels such as melt, whisk, mix, fold in, simmer, chill or assemble. Mark branch true when ingredients are prepared separately from the main mixture and join later. Stage ingredientIds contain only the ingredients or accumulated mixture flowing through that stage. Put oven or pan preparation in prepNotes, the last cooking or serving action in finalStep, and ingredients first added in that action in finalIngredientIds. Do not invent details.",
+        instructions: "You are a fallback parser. Convert the supplied recipe into accurate flowchart data. Preserve quantities and temperatures. List every ingredient once in original order and use ids i1, i2, etc. Make each suitable recipe instruction line one stage. Use the instruction's own verb or short compound verbs as its label; do not replace it with a preset synonym. Stage ingredientIds contain the ingredients in that stage's output. inputStageIds identify earlier stage outputs consumed by this stage. Mark branch true for a separately prepared component. Put oven or pan preparation in prepNotes. Put the last action in finalStep, ingredients first added there in finalIngredientIds, and active stage outputs feeding it in finalInputStageIds. Do not invent details.",
         input: recipeText,
         text: { format: { type: "json_schema", name: "recipe_flowchart", strict: true, schema } }
       })
