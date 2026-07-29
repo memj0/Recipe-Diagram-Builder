@@ -47,14 +47,14 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
             <div className="stage-group" key={stage.id}>
               <div className="stage-lane" aria-hidden="true" style={{ gridColumn: column, gridRow: `1 / span ${rows}` }} />
               {stage.branch && !hasInputs && column > 2 && (
-                <div className="branch-route" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
+                <div className="branch-route entry-route" aria-hidden="true" style={{ gridColumn: `2 / ${column}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
               <div className={`stage-box${stage.branch ? " branch-box" : ""}${(stage.inputStageIds?.length || 0) > 1 ? " merge-box" : ""}`} style={{ gridColumn: column, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} title={stage.instruction}>
                 <strong>{stage.label}</strong>
                 <span>{stage.instruction}</span>
               </div>
               {consumerColumn && column + 1 < consumerColumn && (
-                <div className="branch-route" aria-hidden="true" style={{ gridColumn: `${column + 1} / ${consumerColumn}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
+                <div className="branch-route output-route" aria-hidden="true" style={{ gridColumn: `${column + 1} / ${consumerColumn}`, gridRow: `${start} / span ${Math.max(end - start + 1, 1)}` }} />
               )}
             </div>
           );
@@ -62,7 +62,7 @@ function Chart({ recipe }: { recipe: RecipeChart }) {
 
         {(recipe.finalIngredientIds || []).filter(id => !recipe.stages.some(stage => stage.ingredientIds.includes(id))).map(id => {
           const row = ingredientIndex.get(id);
-          return row ? <div className="branch-route final-route" aria-hidden="true" key={`final-${id}`} style={{ gridColumn: `2 / ${finalColumn}`, gridRow: row }} /> : null;
+          return row ? <div className="branch-route entry-route final-route" aria-hidden="true" key={`final-${id}`} style={{ gridColumn: `2 / ${finalColumn}`, gridRow: row }} /> : null;
         })}
 
         <div className="final-column" style={{ gridColumn: finalColumn, gridRow: `1 / span ${rows}` }}>

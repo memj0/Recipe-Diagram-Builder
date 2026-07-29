@@ -24,18 +24,18 @@ textarea:focus,input:focus { border-color:#222; box-shadow:0 0 0 3px rgba(223,25
 .preview-toolbar { min-height:58px; padding:0 17px; border-bottom:1px solid #dfdfd3; display:flex; align-items:center; justify-content:space-between; font-weight:800; }
 .preview-toolbar button { border:1px solid #cfcfc3; border-radius:9px; background:#fff; padding:8px 10px; cursor:pointer; }
 .preview-scroll { overflow:auto; padding:18px; }
-.chart-shell { min-width:900px; background:#fffef3; border:4px solid var(--green); box-shadow:0 0 0 8px #f4ffad; }
+.chart-shell { width:max-content; min-width:100%; background:#fffef3; border:4px solid var(--green); box-shadow:0 0 0 8px #f4ffad; }
 .chart-shell h2 { margin:0; padding:14px 20px; text-align:center; font-size:28px; border-bottom:3px solid var(--line); }
 .prep-note { text-align:center; font-size:20px; padding:10px; border-bottom:3px solid var(--line); }
-.flow-grid { display:grid; align-items:stretch; min-height:500px; position:relative; }
+.flow-grid { display:grid; align-items:stretch; width:max-content; min-width:100%; min-height:500px; position:relative; }
 .ingredient { padding:10px 12px; display:flex; align-items:center; font-size:18px; border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
 .ingredient-last { border-bottom:0; }
 .stage-group { display:contents; }
 .stage-lane { border-right:3px solid var(--line); min-width:0; }
-.stage-box { z-index:1; min-height:58px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:10px 7px; text-align:center; background:var(--paper); border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
+.stage-box { z-index:2; min-height:58px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:10px 7px; text-align:center; overflow-wrap:anywhere; background:var(--paper); border-right:3px solid var(--line); border-bottom:3px solid var(--line); }
 .branch-box { border-top:3px solid var(--line); }
 .merge-box { border-left:3px solid var(--line); }
-.branch-route { z-index:2; align-self:center; height:0; border-top:3px solid var(--line); pointer-events:none; }
+.branch-route { z-index:1; align-self:end; height:0; border-top:3px solid var(--line); pointer-events:none; }
 .stage-box strong { font-size:20px; text-transform:lowercase; }
 .stage-box span { display:none; }
 .final-column { display:flex; align-items:center; justify-content:center; text-align:center; padding:16px; font-size:21px; line-height:1.35; }
