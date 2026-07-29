@@ -1,0 +1,72 @@
+import { NextResponse } from "next/server";
+import { parseRecipeDeterministically } from "../../../lib/parser";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const schema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "prepNotes", "ingredients", "stages", "finalStep"],
+  properties: {
+    title: { type: "string" },
+    prepNotes: { type: "array", items: { type: "string" }, maxItems: 4 },
+    ingredients: {
+      type: "array", minItems: 1,
+      items: { type: "object", additionalProperties: false, required: ["id", "text"], properties: { id: { type: "string" }, text: { type: "string" } } }
+    },
+    stages: {
+      type: "array", minItems: 1, maxItems: 8,
+      items: {
+        type: "object", additionalProperties: false, required: ["id", "label", "ingredientIds", "instruction"],
+        properties: {
+          id: { type: "string" }, label: { type: "string" }, instruction: { type: "string" },
+          ingredientIds: { type: "array", items: { type: "string" }, minItems: 1 }
+        }
+      }
+    },
+    finalStep: { type: "string" }
+  }
+};
+
+export async function POST(request: Request) {
+  try {
+    const { recipeText, allowAiFallback = true } = await request.json();
+    if (typeof recipeText !== "string" || recipeText.trim().length < 30) return NextResponse.json({ error: "Paste a fuller recipe before generating a chart." }, { status: 400 });
+    if (recipeText.length > 40000) return NextResponse.json({ error: "Recipe text is too long." }, { status: 400 });
+
+    const deterministic = parseRecipeDeterministically(recipeText);
+    const shouldUseAi = Boolean(allowAiFallback) && deterministic.confidence < 0.72 && Boolean(process.env.OPENAI_API_KEY);
+
+    if (!shouldUseAi) {
+      return NextResponse.json({
+        ...deterministic.chart,
+        meta: { method: "deterministic", confidence: deterministic.confidence, warnings: deterministic.warnings }
+      });
+    }
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+        store: false,
+        instructions: "You are a fallback parser. Convert the supplied recipe into compact, accurate flowchart data only when deterministic parsing was uncertain. Preserve quantities and temperatures. List every ingredient once in original order. Ingredient ids must be i1, i2, etc. Each stage should represent one meaningful cooking action. Use short labels such as melt, whisk, mix, fold in, simmer, chill or assemble. Put oven or pan preparation in prepNotes and the last cooking or serving action in finalStep. Do not invent details.",
+        input: recipeText,
+        text: { format: { type: "json_schema", name: "recipe_flowchart", strict: true, schema } }
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      return NextResponse.json({
+        ...deterministic.chart,
+        meta: { method: "deterministic", confidence: deterministic.confidence, warnings: [...deterministic.warnings, "AI fallback failed, so the deterministic result was used."] }
+      });
+    }
+    const outputText = payload.output_text || payload.output?.flatMap((item: any) => item.content || []).find((item: any) => item.type === "output_text")?.text;
+    if (!outputText) throw new Error("The AI returned no chart data.");
+    return NextResponse.json({ ...JSON.parse(outputText), meta: { method: "ai-fallback", confidence: deterministic.confidence, warnings: deterministic.warnings } });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not generate the chart." }, { status: 500 });
+  }
+}
