@@ -2,7 +2,7 @@ import type { RecipeChart } from "./types";
 
 const sectionHeadings = /^(ingredients?|what you(?:'|’)ll need|instructions?|method|directions?|steps?|preparation)\s*:?[\s]*$/i;
 const ingredientStart = /^(?:\d+\s+)?(?:\d+\s*\/\s*\d+|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)?\s*(?:cups?|tbsps?|tablespoons?|tsps?|teaspoons?|grams?|g|kg|ml|l|oz|ounces?|lb|lbs|pounds?|cloves?|cans?|packets?|pinch|dash|handful|large|medium|small)?\b/i;
-const actionWords = /\b(preheat|heat|warm|melt|whisk|mix|stir|fold|beat|blend|combine|add|put|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|cut|chop|dice|knead|roll|assemble|sandwich|stack|layer|fill|coat|cover|spread|line|grease|decorate)\b/i;
+const actionWords = /\b(preheat|heat|warm|melt|whisk|mix|stir|fold|beat|blend|combine|add|put|place|transfer|pour|bake|roast|grill|fry|simmer|boil|chill|freeze|cool|leave|rest|serve|season|slice|cut|chop|dice|knead|roll|assemble|sandwich|stack|layer|fill|coat|cover|spread|line|grease|decorate)\b/i;
 const prepWords = /(preheat|grease|butter .*pan|line .*pan|prepare .*tin|set .*oven|heat (?:the )?oven)/i;
 
 function cleanLine(value: string) {
@@ -13,28 +13,36 @@ function titleCase(value: string) {
   return value.replace(/\b\w/g, char => char.toUpperCase());
 }
 
-function descriptiveAssemblyLabel(step: string) {
-  const match = step.match(/\b(assemble|sandwich|stack|layer|fill|coat|cover|spread|decorate)\b[^.!?;]*/i);
+function descriptiveActionLabel(step: string) {
+  const match = step.match(/\b(put|place|transfer|add|pour|mix|combine|fold|beat|whisk|stir|assemble|sandwich|stack|layer|fill|coat|cover|spread|decorate)\b[^.!?;]*/i);
   if (!match) return undefined;
 
-  const words = match[0]
+  const cleaned = match[0]
     .replace(/,?\s+(?:then|before|until|and (?:then|serve|chill|leave|put|place))\b.*$/i, "")
     .replace(/\b(?:the|a|an|just|under|about|roughly|approximately|remaining|rest of|half of|half|some of|some)\b/gi, " ")
+    .replace(/\b\d+(?:\.\d+)?\s*(?:g|kg|ml|l|oz|lb|tsp|tbsp)s?\b/gi, " ")
+    .replace(/\b(?:finely|roughly|coarsely|chopped|cubed|diced|sliced|beaten|melted|softened)\b/gi, " ")
     .replace(/\bcakes?\b/gi, "layers")
+    .replace(/\band\b/gi, "&")
+    .replace(/\s*,\s*/g, ", ")
     .replace(/\s+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 8);
+    .trim();
+  const words = cleaned.split(/\s+/);
+  if (words.length > 11) {
+    const destination = cleaned.match(/\b(?:in|into|onto|over|with)\s+(?:[a-z-]+\s+){0,3}(?:pan|tin|bowl|dish|tray|mixture|batter|dough|ganache|icing|filling)\b/i)?.[0];
+    const shortened = words.slice(0, destination ? 8 : 11).join(" ");
+    return `${shortened}${destination && !shortened.includes(destination) ? ` ${destination}` : ""}`.toLowerCase();
+  }
 
-  return words.length > 1 ? words.join(" ").toLowerCase() : undefined;
+  return words.length > 1 ? cleaned.toLowerCase() : undefined;
 }
 
 function actionLabel(step: string) {
   const componentName = step.match(/^\s*to make\s+(?:the\s+)?([a-z][a-z -]{1,28}?)(?:,|\s+(?:put|mix|stir|combine|add|heat|whisk|beat)\b)/i);
   if (componentName) return `make ${componentName[1].trim().toLowerCase()}`;
 
-  const assemblyLabel = descriptiveAssemblyLabel(step);
-  if (assemblyLabel) return assemblyLabel;
+  const descriptiveLabel = descriptiveActionLabel(step);
+  if (descriptiveLabel) return descriptiveLabel;
 
   let matches = [...step.matchAll(new RegExp(actionWords.source, "gi"))]
     .filter(match => {
