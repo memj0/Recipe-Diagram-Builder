@@ -16,7 +16,7 @@ const schema = {
       items: { type: "object", additionalProperties: false, required: ["id", "text"], properties: { id: { type: "string" }, text: { type: "string" } } }
     },
     stages: {
-      type: "array", minItems: 1, maxItems: 8,
+      type: "array", minItems: 1, maxItems: 16,
       items: {
         type: "object", additionalProperties: false, required: ["id", "label", "ingredientIds", "instruction", "branch"],
         properties: {
